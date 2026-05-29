@@ -1,10 +1,15 @@
-import { LoginForm } from "@/components/login-page";
+'use client';
 
-export default function Login() {
+import React from 'react';
+// යාළුවාගේ ෆයිල් එකෙන් 'LoginForm' එක නිවැරදිව ඉම්පෝර්ට් කරගන්නවා
+import { LoginForm } from "@/components/login-page"; 
+
+export default function LoginPage() {
   return (
-    <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
+    <div className="flex min-h-screen w-full items-center justify-center bg-white p-6 md:p-10">
       <div className="w-full max-w-sm">
-        <LoginForm />
+        {/* යාළුවා හදපු සැබෑ UI එක මෙතනින් රෙන්ඩර් වෙනවා */}
+        <LoginForm /> 
       </div>
     </div>
   );
