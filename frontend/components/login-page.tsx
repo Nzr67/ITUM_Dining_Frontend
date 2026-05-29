@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import * as React from "react"
 import { Eye, EyeOff } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -158,7 +159,7 @@ export function LoginForm({
                   </Button>
                 </div>
                 <p className="text-center text-sm text-muted-foreground mt-4">
-                  Don&apos;t have an account? <a href="#" className="underline underline-offset-4 hover:text-primary">Sign up</a>
+                  Don&apos;t have an account? <a href="/Signup" className="underline underline-offset-4 hover:text-primary">Sign up</a>
                 </p>
               </Field>
             </FieldGroup>
