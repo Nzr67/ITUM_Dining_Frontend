@@ -25,9 +25,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, ArrowLeft } from "lucide-react"
+import { useSearchParams } from "next/navigation"
 
 export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
+  const searchParams = useSearchParams()
+  const from = searchParams.get("from") || "/"
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [firstName, setFirstName] = useState("")
@@ -68,8 +71,15 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
   }
 
   return (
-    <Card {...props}>
-      <CardHeader>
+    <Card {...props} className="relative">
+      <Link 
+        href={from}
+        className="absolute left-4 top-4 p-2 rounded-full hover:bg-zinc-100 transition-colors"
+        aria-label="Back"
+      >
+        <ArrowLeft className="h-4 w-4" />
+      </Link>
+      <CardHeader className="pt-12">
         <CardTitle>Create an account</CardTitle>
         <CardDescription>
           Enter your information below to create your account
@@ -197,7 +207,7 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
                 Create Account
               </Button>
               <FieldDescription className="text-center">
-                Already have an account? <a href="/Login" className="underline hover:text-primary">Sign in</a>
+                Already have an account? <Link href="/Login?from=/Sign_up" className="underline hover:text-primary">Sign in</Link>
               </FieldDescription>
             </div>
           </FieldGroup>

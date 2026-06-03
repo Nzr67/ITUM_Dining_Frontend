@@ -2,8 +2,8 @@
 
 import Link from "next/link"
 import * as React from "react"
-import { Eye, EyeOff } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { Eye, EyeOff, ArrowLeft } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
 import CryptoJS from "crypto-js"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -31,6 +31,8 @@ export function LoginForm({
   const [isLoading, setIsLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const from = searchParams.get("from") || "/"
 
   const domain = "@itum.mrt.ac.lk"
 
@@ -82,8 +84,15 @@ export function LoginForm({
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card>
-        <CardHeader>
+      <Card className="relative">
+        <Link 
+          href={from}
+          className="absolute left-4 top-4 p-2 rounded-full hover:bg-zinc-100 transition-colors"
+          aria-label="Back"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Link>
+        <CardHeader className="pt-12">
           <CardTitle>Login to your account</CardTitle>
           <CardDescription>
             Enter your student ID to sign in to your ITUM webmail
@@ -159,7 +168,7 @@ export function LoginForm({
                   </Button>
                 </div>
                 <p className="text-center text-sm text-muted-foreground mt-4">
-                  Don&apos;t have an account? <a href="/Signup" className="underline underline-offset-4 hover:text-primary">Sign up</a>
+                  Don&apos;t have an account? <Link href="/Sign_up?from=/Login" className="underline underline-offset-4 hover:text-primary">Sign up</Link>
                 </p>
               </Field>
             </FieldGroup>

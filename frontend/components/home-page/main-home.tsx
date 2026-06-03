@@ -45,13 +45,13 @@ export default function MainHome() {
           {/* Action Buttons - සයින්-අප් පේජ් එකේ බටන් ස්ටයිල් එකටම හැදුවා */}
           <div className="flex gap-2">
             <Link 
-              href="/Sign_up" 
+              href="/Sign_up?from=/" 
               className="px-4 py-2 text-sm font-medium border border-zinc-200 text-zinc-900 bg-white rounded-md hover:bg-zinc-50 hover:text-zinc-900 transition shadow-sm text-center inline-block"
             >
               Sign Up
             </Link>
             <Link 
-              href="/Login" 
+              href="/Login?from=/" 
               className="px-4 py-2 text-sm font-medium border border-zinc-200 text-zinc-900 bg-white rounded-md hover:bg-zinc-50 hover:text-zinc-900 transition shadow-sm text-center inline-block"
             >
               Sign In
