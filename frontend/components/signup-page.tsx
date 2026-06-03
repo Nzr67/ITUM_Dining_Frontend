@@ -207,7 +207,7 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
                 Create Account
               </Button>
               <FieldDescription className="text-center">
-                Already have an account? <Link href="/Login?from=/Sign_up" className="underline hover:text-primary">Sign in</Link>
+                Already have an account? <Link href="/login?from=/signup" className="underline hover:text-primary">Sign in</Link>
               </FieldDescription>
             </div>
           </FieldGroup>

@@ -168,7 +168,7 @@ export function LoginForm({
                   </Button>
                 </div>
                 <p className="text-center text-sm text-muted-foreground mt-4">
-                  Don&apos;t have an account? <Link href="/Sign_up?from=/Login" className="underline underline-offset-4 hover:text-primary">Sign up</Link>
+                  Don&apos;t have an account? <Link href="/signup?from=/login" className="underline underline-offset-4 hover:text-primary">Sign up</Link>
                 </p>
               </Field>
             </FieldGroup>
