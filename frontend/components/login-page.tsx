@@ -4,7 +4,6 @@ import Link from "next/link"
 import * as React from "react"
 import { Eye, EyeOff, ArrowLeft } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
-import CryptoJS from "crypto-js"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -52,18 +51,14 @@ export function LoginForm({
     const formattedEmail = `${studentId}${domain}`
 
     try {
-      // 3) Hash the password using crypto-js
-      const hashedPassword = CryptoJS.SHA256(password).toString()
-
-      // 3) Update the fetch POST request payload
-      const response = await fetch("/api/login", {
+      const response = await fetch("http://localhost:8000/api/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          student_webmail: formattedEmail,
-          password: hashedPassword,
+          email: formattedEmail,
+          password: password,
         }),
       })
 
@@ -73,10 +68,10 @@ export function LoginForm({
         // Redirect on 200 OK
         router.push("/")
       } else {
-        setError(data.error || "Login failed")
+        setError(data.detail || "Login failed")
       }
     } catch {
-      setError("An error occurred. Please try again.")
+      setError("Could not connect to the server.")
     } finally {
       setIsLoading(false)
     }
