@@ -65,6 +65,9 @@ export function LoginForm({
       const data = await response.json()
 
       if (response.ok) {
+        // Store user info and token in localStorage
+        localStorage.setItem("user", JSON.stringify(data.user))
+        localStorage.setItem("access_token", data.access_token)
         // Redirect on 200 OK
         router.push("/")
       } else {
