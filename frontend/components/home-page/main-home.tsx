@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 import { LayoutDashboard, Trophy, User, LogOut, Sun, Moon, Camera, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +30,8 @@ export default function MainHome() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const router = useRouter();
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -312,21 +315,21 @@ export default function MainHome() {
         {/* Clickable Canteen Buttons */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button 
-            ///onClick={() => alert('Canteen 1 Clicked!')}
+            onClick={() => router.push('/canteen/goda')}
             className="w-full h-28 border border-border rounded-xl flex items-center justify-center bg-card hover:bg-accent active:scale-[0.98] transition-all shadow-sm group"
           >
             <h1 className="text-xl font-semibold tracking-tight text-foreground/80 group-hover:text-foreground">Goda Canteen</h1>
           </button>
 
           <button 
-            ///onClick={() => alert('Canteen 2 Clicked!')}
+            onClick={() => router.push('/canteen/vala')}
             className="w-full h-28 border border-border rounded-xl flex items-center justify-center bg-card hover:bg-accent active:scale-[0.98] transition-all shadow-sm group"
           >
             <h1 className="text-xl font-semibold tracking-tight text-foreground/80 group-hover:text-foreground">Vala Canteen</h1>
           </button>
 
           <button 
-            ///onClick={() => alert('Civil Canteen Clicked!')}
+            onClick={() => router.push('/canteen/civil')}
             className="w-full h-28 border border-border rounded-xl flex items-center justify-center bg-card hover:bg-accent active:scale-[0.98] transition-all shadow-sm group"
           >
             <h1 className="text-xl font-semibold tracking-tight text-foreground/80 group-hover:text-foreground">Civil Canteen</h1>
