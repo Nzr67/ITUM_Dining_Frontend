@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, ArrowLeft } from 'lucide-react';
+import { Search, ArrowLeft, RefreshCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import FoodStatusPopup from './food-status-popup';
 
 // Define what a Food Item looks like for TypeScript (Price completely removed)
 interface FoodItem {
@@ -22,6 +23,8 @@ export default function CanteenMenu({ canteenId, canteenName }: CanteenMenuProps
     const [searchQuery, setSearchQuery] = useState("");
     const [menuItems, setMenuItems] = useState<FoodItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isPopupOpen, setIsPopupOpen] = useState(false);
+    const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
     const router = useRouter();
 
  
@@ -151,6 +154,15 @@ export default function CanteenMenu({ canteenId, canteenName }: CanteenMenuProps
                                     <span className="text-[11px] text-muted-foreground">Notice a change?</span>
                                     <div className="flex gap-2">
                                         <button 
+                                            onClick={() => {
+                                                setSelectedFood(item);
+                                                setIsPopupOpen(true);
+                                            }}
+                                            className="bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30 text-xs px-2.5 py-1 rounded-lg font-medium transition flex items-center gap-1"
+                                        >
+                                            <RefreshCw className="w-3 h-3" /> Update
+                                        </button>
+                                        <button 
                                             onClick={() => handleStatusUpdate(item.food_id, 'Low Stock')}
                                             className="bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/30 text-xs px-2.5 py-1 rounded-lg font-medium transition"
                                         >
@@ -174,6 +186,17 @@ export default function CanteenMenu({ canteenId, canteenName }: CanteenMenuProps
                 </div>
 
             </div>
+
+            {selectedFood && (
+                <FoodStatusPopup
+                    isOpen={isPopupOpen}
+                    onClose={() => setIsPopupOpen(false)}
+                    foodId={selectedFood.food_id}
+                    foodName={selectedFood.food_name}
+                    studentId={studentId}
+                    onUpdateSuccess={fetchMenu}
+                />
+            )}
         </div>
     );
 }
