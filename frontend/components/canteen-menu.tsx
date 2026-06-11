@@ -1,16 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Search, ArrowLeft } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Search, ArrowLeft, RefreshCw } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { fetchItems } from '@/lib/api';
+import { cn } from '@/lib/utils';
+import { StatusUpdateModal } from './home-page/status-update-modal';
 
-// Define what a Food Item looks like for TypeScript (Price completely removed)
 interface FoodItem {
-    food_id: number;
-    food_name: string;
-    status: string;
-    last_verified?: string;
+    id: string;
+    name: string;
+    description: string;
+    current_status: string;
+    ready_in_minutes: number | null;
+    consensus_confidence: number;
 }
 
 interface CanteenMenuProps {
@@ -19,81 +24,71 @@ interface CanteenMenuProps {
 }
 
 export default function CanteenMenu({ canteenId, canteenName }: CanteenMenuProps) {
-    const [searchQuery, setSearchQuery] = useState("");
+    const [searchQuery, setSearchQuery] = useState('');
     const [menuItems, setMenuItems] = useState<FoodItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedItem, setSelectedItem] = useState<FoodItem | null>(null);
+    const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+    const [user, setUser] = useState<any>(null);
     const router = useRouter();
 
- 
-    const BACKEND_URL = "http://localhost:8000";
-    
-    // Attempt to get student ID from localStorage, fallback to test ID
-    const [studentId, setStudentId] = useState("IT2024_01");
-
-    useEffect(() => {
-        let currentStudentId = "IT2024_01";
-        const storedUser = localStorage.getItem('user');
-        
-        if (storedUser) {
-            try {
-                const user = JSON.parse(storedUser);
-                if (user && user.id) {
-                    currentStudentId = user.id;
-                    setStudentId(user.id);
-                }
-            } catch (e) {
-                console.error("Failed to parse user from localStorage", e);
-            }
-        }
-        fetchMenu();
-    }, []);
-
-    const fetchMenu = async () => {
+    const loadMenu = useCallback(async () => {
+        setLoading(true);
         try {
-            // In a real app, you might pass canteenId to the API
-            const response = await fetch(`${BACKEND_URL}/api/get-menu`);
-            const data = await response.json();
-            if (data.status === "success") {
-                setMenuItems(data.menu);
-            }
+            const data = await fetchItems(canteenId);
+            setMenuItems(data);
         } catch (error) {
-            console.error("Error communicating with backend server:", error);
+            console.error('Error fetching menu:', error);
         } finally {
             setLoading(false);
         }
-    };
+    }, [canteenId]);
 
-    // RUNS ON CLICK: Sends your status report back to the local API
-    const handleStatusUpdate = async (foodId: number, selectedStatus: string) => {
-        try {
-            const response = await fetch(`${BACKEND_URL}/api/verify-spatial-update`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    student_id: studentId,
-                    food_id: foodId,
-                    status: selectedStatus
-                })
-            });
-            
-            const data = await response.json();
-            if (response.ok && data.status === "success") {
-                alert(`Success: ${data.message}`);
-                fetchMenu(); // Re-sync frontend UI with local backend state automatically
-            } else {
-                alert(`Failed: ${data.message}`);
+    useEffect(() => {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+            try {
+                setUser(JSON.parse(storedUser));
+            } catch (e) {
+                console.error('Failed to parse user', e);
             }
-        } catch (error) {
-            alert("Network error: Could not reach Python server.");
         }
-    };
+        loadMenu();
+    }, [loadMenu]);
 
-    // Filter list entries based on Search bar input box
     const filteredItems = menuItems.filter(item =>
-        item.food_name.toLowerCase().includes(searchQuery.toLowerCase())
+        item.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-
+    const renderAvailabilityStatus = (item: FoodItem) => {
+        const isAvailable = item.current_status === 'available';
+        const isComingSoon = item.current_status === 'coming_soon';
+        
+        let label = item.current_status;
+        if (isAvailable) label = 'Available';
+        if (isComingSoon) label = 'Ready in ' + item.ready_in_minutes + 'm';
+        if (item.current_status === 'unavailable') label = 'Not Available';
+    
+        return (
+          <div className="flex flex-col items-end gap-0.5">
+            <div 
+              className={cn(
+                "px-2.5 py-0.5 text-[9px] font-bold rounded-full border uppercase tracking-wider",
+                isAvailable 
+                  ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-900/50" 
+                  : isComingSoon
+                    ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-900/50"
+                    : "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/50"
+              )}
+            >
+              {label}
+            </div>
+            <div className="text-[8px] text-muted-foreground font-medium">
+              {(item.consensus_confidence * 100).toFixed(0)}% Certain
+            </div>
+          </div>
+        );
+    };
 
     return (
         <div className="w-full min-h-screen bg-background p-4 md:p-8 flex flex-col items-center">
@@ -114,7 +109,13 @@ export default function CanteenMenu({ canteenId, canteenName }: CanteenMenuProps
                         <h1 className="flex-1 text-center font-bold text-foreground tracking-wider text-xl uppercase">
                             {canteenName}
                         </h1>
-                        <div className="w-10"></div> {/* Spacer for symmetry */}
+                        <button 
+                            onClick={loadMenu}
+                            disabled={loading}
+                            className="p-2 rounded-full hover:bg-accent transition-colors disabled:opacity-50"
+                        >
+                            <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+                        </button>
                     </div>
                     <div className="relative">
                         <input 
@@ -130,50 +131,64 @@ export default function CanteenMenu({ canteenId, canteenName }: CanteenMenuProps
 
                 {/* DYNAMIC MENU CARDS LIST */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/30">
-                    {filteredItems.length > 0 ? (
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center py-20 gap-3">
+                            <RefreshCw className="w-8 h-8 animate-spin text-primary/40" />
+                            <span className="text-sm text-muted-foreground">Loading menu...</span>
+                        </div>
+                    ) : filteredItems.length > 0 ? (
                         filteredItems.map((item) => (
-                            <div key={item.food_id} className="bg-card p-4 rounded-2xl border border-border shadow-sm flex flex-col justify-between hover:border-primary/50 transition-colors">
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <h3 className="font-semibold text-foreground text-base">{item.food_name}</h3>
+                            <div key={item.id} className="bg-card p-4 rounded-2xl border border-border shadow-sm flex flex-col justify-between hover:border-primary/50 transition-colors group">
+                                <div className="flex justify-between items-start">
+                                    <div className="flex flex-col">
+                                        <h3 className="font-semibold text-foreground text-base">{item.name}</h3>
+                                        <p className="text-[11px] text-muted-foreground line-clamp-1">{item.description}</p>
                                     </div>
-                                    <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${
-                                        item.status === 'Available' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                        item.status === 'Low Stock' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 
-                                        'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                                    }`}>
-                                        {item.status}
-                                    </span>
+                                    {renderAvailabilityStatus(item)}
                                 </div>
 
                                 {/* Crowd Report Action Block */}
                                 <div className="mt-3 pt-2 border-t border-dashed border-border flex justify-between items-center">
                                     <span className="text-[11px] text-muted-foreground">Notice a change?</span>
-                                    <div className="flex gap-2">
+                                    {user ? (
                                         <button 
-                                            onClick={() => handleStatusUpdate(item.food_id, 'Low Stock')}
-                                            className="bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/30 text-xs px-2.5 py-1 rounded-lg font-medium transition"
+                                            onClick={() => {
+                                                setSelectedItem(item);
+                                                setIsUpdateModalOpen(true);
+                                            }}
+                                            className="bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground text-[10px] px-3 py-1 rounded-lg font-bold transition-all uppercase tracking-tight"
                                         >
-                                            ⚠️ Low
+                                            Report Status
                                         </button>
-                                        <button 
-                                            onClick={() => handleStatusUpdate(item.food_id, 'Not-Available')}
-                                            className="bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-900/20 dark:text-rose-400 dark:hover:bg-rose-900/30 text-xs px-2.5 py-1 rounded-lg font-medium transition"
-                                        >
-                                            ❌ Out
-                                        </button>
-                                    </div>
+                                    ) : (
+                                        <Link href="/login" className="text-[10px] text-primary hover:underline font-medium">Login to report</Link>
+                                    )}
                                 </div>
                             </div>
                         ))
                     ) : (
-                        <div className="text-center text-sm text-muted-foreground pt-8">
-                            No food items found matching your search.
+                        <div className="text-center text-sm text-muted-foreground pt-12 flex flex-col items-center gap-2">
+                            <div className="bg-muted p-4 rounded-full">
+                                <Search className="w-6 h-6 opacity-20" />
+                            </div>
+                            <p>No items found in this canteen.</p>
                         </div>
                     )}
                 </div>
 
             </div>
+
+            {selectedItem && (
+                <StatusUpdateModal 
+                    isOpen={isUpdateModalOpen}
+                    onClose={() => {
+                        setIsUpdateModalOpen(false);
+                        setSelectedItem(null);
+                    }}
+                    item={selectedItem}
+                    onSuccess={loadMenu}
+                />
+            )}
         </div>
     );
 }

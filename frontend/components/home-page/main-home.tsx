@@ -1,45 +1,104 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
-import { LayoutDashboard, Trophy, User, LogOut, Sun, Moon, Camera, X, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Field, FieldLabel } from '@/components/ui/field';
+import { LayoutDashboard, Trophy, User as UserIcon, LogOut, Sun, Moon, RefreshCw, Clock, MapPin, UserPlus } from 'lucide-react';
+import { fetchRecentUpdates } from '@/lib/api';
 
-const foodItemsData = [
-  { name: 'Vegetable Food', label: 'Available', status: 'available', canteen: 'Canteen 1' },
-  { name: 'Fish Food', label: 'Not Available', status: 'notAvailable', canteen: 'Canteen 2' },
-  { name: 'Chicken Food', label: 'Available', status: 'available', canteen: 'Canteen 1' },
-  { name: 'Egg Food', label: 'Available', status: 'available', canteen: 'Canteen 3' },
-];
+interface UpdateRecord {
+  id: string;
+  item_id: string;
+  reported_status: string;
+  ready_in_minutes: number | null;
+  created_at: string;
+  menu_items: { name: string };
+  profiles: { full_name: string };
+}
+
+interface UserProfile {
+  id: string;
+  email: string;
+  metadata?: {
+    full_name?: string;
+    avatar_url?: string;
+  };
+}
 
 export default function MainHome() {
+  const [recentUpdates, setRecentUpdates] = useState<UpdateRecord[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const { setTheme, resolvedTheme } = useTheme();
   const profileRef = useRef<HTMLDivElement>(null);
-
-  // Profile Modal State
-  const [newName, setNewName] = useState('');
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const router = useRouter();
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-      setNewName(parsedUser.metadata?.full_name || '');
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('access_token');
+    setUser(null);
+    setIsProfileOpen(false);
+    router.refresh();
+  }, [router]);
+
+  const loadRecentUpdates = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await fetchRecentUpdates();
+      setRecentUpdates(data || []);
+    } catch (error) {
+      console.error('Failed to load recent updates:', error);
+    } finally {
+      setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    const initData = async () => {
+        await loadRecentUpdates();
+        
+        const storedUser = localStorage.getItem('user');
+        const token = localStorage.getItem('access_token');
+        
+        if (storedUser && token) {
+          try {
+            const parsedUser = JSON.parse(storedUser);
+            
+            // Basic JWT expiration check (client-side)
+            try {
+              const base64Url = token.split('.')[1];
+              const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+              const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                  return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+              }).join(''));
+
+              const payload = JSON.parse(jsonPayload);
+              if (payload.exp && Date.now() >= payload.exp * 1000) {
+                console.warn('Token expired, logging out');
+                handleLogout();
+                return;
+              }
+            } catch (e) {
+              console.error('Failed to parse token payload', e);
+            }
+
+            setUser(parsedUser);
+          } catch (e) {
+            console.error('Failed to parse user', e);
+            handleLogout();
+          }
+        } else {
+          setUser(null);
+        }
+    };
+
+    initData();
 
     const handleClickOutside = (event: MouseEvent) => {
       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
@@ -49,97 +108,21 @@ export default function MainHome() {
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('access_token');
-    setUser(null);
-    setIsProfileOpen(false);
-  };
+  }, [loadRecentUpdates, handleLogout]);
 
   const toggleTheme = () => {
     setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
   };
 
-  const handleUpdateProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsUpdating(true);
-    const token = localStorage.getItem('access_token');
+  const formatTimeAgo = (dateStr: string) => {
+    const now = new Date();
+    const past = new Date(dateStr);
+    const diffInSeconds = Math.floor((now.getTime() - past.getTime()) / 1000);
     
-    try {
-      const response = await fetch('http://localhost:8000/api/user/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ full_name: newName })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const updatedUser = { ...user, metadata: data.user.user_metadata };
-        setUser(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        setIsProfileModalOpen(false);
-      }
-    } catch (error) {
-      console.error('Failed to update profile:', error);
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploadingImage(true);
-    const token = localStorage.getItem('access_token');
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await fetch('http://localhost:8000/api/user/upload-profile-pic', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const updatedUser = { 
-          ...user, 
-          metadata: { ...user.metadata, avatar_url: data.avatar_url } 
-        };
-        setUser(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-      }
-    } catch (error) {
-      console.error('Failed to upload image:', error);
-    } finally {
-      setUploadingImage(false);
-    }
-  };
-
-  const renderAvailabilityStatus = (status: string, label: string) => {
-    const isAvailable = status === 'available';
-
-    return (
-      <div 
-        className={cn(
-          "px-3 py-1 text-xs font-medium rounded-full border transition-colors",
-          isAvailable 
-            ? "bg-green-50 text-green-600 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-900/50" 
-            : "bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/50"
-        )}
-      >
-        {label}
-      </div>
-    );
+    if (diffInSeconds < 60) return 'Just now';
+    if (diffInSeconds < 3600) return Math.floor(diffInSeconds / 60) + 'm ago';
+    if (diffInSeconds < 86400) return Math.floor(diffInSeconds / 3600) + 'h ago';
+    return Math.floor(diffInSeconds / 86400) + 'd ago';
   };
 
   return (
@@ -150,7 +133,6 @@ export default function MainHome() {
         {/* Header Section */}
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            {/* Hamburger Menu Icon */}
             <button 
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="flex flex-col gap-1.5 w-6 h-5 justify-center items-center cursor-pointer opacity-70 hover:opacity-100 transition-all z-50"
@@ -173,7 +155,6 @@ export default function MainHome() {
             <span className="text-lg font-bold tracking-tight text-primary">ITUM DINING</span>
           </div>
 
-          {/* Action Buttons or Profile Icon */}
           <div className="flex items-center gap-2">
             {user ? (
               <div className="relative" ref={profileRef}>
@@ -185,7 +166,7 @@ export default function MainHome() {
                   {user.metadata?.avatar_url ? (
                     <img src={user.metadata.avatar_url} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
-                    <User className="w-5 h-5" />
+                    <UserIcon className="w-5 h-5" />
                   )}
                 </button>
 
@@ -196,16 +177,6 @@ export default function MainHome() {
                       <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                     </div>
                     
-                    <button
-                      onClick={() => {
-                        setIsProfileModalOpen(true);
-                        setIsProfileOpen(false);
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-accent transition-colors"
-                    >
-                      <User className="w-4 h-4" />
-                      <span>Profile</span>
-                    </button>
                     <button
                       onClick={handleLogout}
                       className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-accent transition-colors"
@@ -219,16 +190,16 @@ export default function MainHome() {
             ) : (
               <div className="flex gap-2">
                 <Link 
-                  href="/signup?from=/" 
-                  className="px-4 py-2 text-sm font-medium border border-border text-foreground bg-background rounded-md hover:bg-accent hover:text-accent-foreground transition shadow-sm text-center inline-block"
+                  href="/signup" 
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-secondary text-secondary-foreground rounded-md hover:opacity-90 transition"
                 >
-                  Sign Up
+                  <UserPlus className="w-3.5 h-3.5" /> Sign Up
                 </Link>
                 <Link 
-                  href="/login?from=/" 
-                  className="px-4 py-2 text-sm font-medium border border-border text-foreground bg-background rounded-md hover:bg-accent hover:text-accent-foreground transition shadow-sm text-center inline-block"
+                  href="/login" 
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:opacity-90 transition shadow-sm"
                 >
-                  Sign In
+                  <UserIcon className="w-3.5 h-3.5" /> Sign In
                 </Link>
               </div>
             )}
@@ -255,13 +226,11 @@ export default function MainHome() {
               </div>
               <div>
                 <div className="font-semibold">Dashboard</div>
-                <div className="text-xs text-muted-foreground">View your food overview</div>
               </div>
             </Link>
 
             <Link 
               href="/leaderboard" 
-              target="_blank"
               onClick={() => setIsMenuOpen(false)}
               className="flex items-center gap-4 p-4 rounded-xl hover:bg-accent transition-colors group"
             >
@@ -270,7 +239,6 @@ export default function MainHome() {
               </div>
               <div>
                 <div className="font-semibold">Leaderboard</div>
-                <div className="text-xs text-muted-foreground">See top dining contributors</div>
               </div>
             </Link>
           </nav>
@@ -280,33 +248,15 @@ export default function MainHome() {
             className="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-accent transition-colors group text-left"
           >
             {resolvedTheme === 'dark' ? (
-              <>
-                <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
-                  <Sun className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <div className="font-semibold">Light Mode</div>
-                  <div className="text-xs text-muted-foreground">Switch to a bright interface</div>
-                </div>
-              </>
+              <><Sun className="w-5 h-5 mr-4" /> Light Mode</>
             ) : (
-              <>
-                <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
-                  <Moon className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <div className="font-semibold">Dark Mode</div>
-                  <div className="text-xs text-muted-foreground">Switch to a dark interface</div>
-                </div>
-              </>
+              <><Moon className="w-5 h-5 mr-4" /> Dark Mode</>
             )}
           </button>
         </div>
-
-          
           <button 
             onClick={() => setIsMenuOpen(false)}
-            className="mt-auto p-4 text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="mt-auto p-4 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             Close Menu
           </button>
@@ -316,134 +266,77 @@ export default function MainHome() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button 
             onClick={() => router.push('/canteen/goda')}
-            className="w-full h-28 border border-border rounded-xl flex items-center justify-center bg-card hover:bg-accent active:scale-[0.98] transition-all shadow-sm group"
+            className="w-full h-24 border border-border rounded-xl flex items-center justify-center bg-card hover:bg-accent transition-all shadow-sm group"
           >
-            <h1 className="text-xl font-semibold tracking-tight text-foreground/80 group-hover:text-foreground">Goda Canteen</h1>
+            <MapPin className="w-4 h-4 mr-2 text-primary opacity-50 group-hover:opacity-100" />
+            <h1 className="font-semibold tracking-tight">Goda</h1>
           </button>
 
           <button 
             onClick={() => router.push('/canteen/vala')}
-            className="w-full h-28 border border-border rounded-xl flex items-center justify-center bg-card hover:bg-accent active:scale-[0.98] transition-all shadow-sm group"
+            className="w-full h-24 border border-border rounded-xl flex items-center justify-center bg-card hover:bg-accent transition-all shadow-sm group"
           >
-            <h1 className="text-xl font-semibold tracking-tight text-foreground/80 group-hover:text-foreground">Vala Canteen</h1>
+            <MapPin className="w-4 h-4 mr-2 text-primary opacity-50 group-hover:opacity-100" />
+            <h1 className="font-semibold tracking-tight">Vala</h1>
           </button>
 
           <button 
             onClick={() => router.push('/canteen/civil')}
-            className="w-full h-28 border border-border rounded-xl flex items-center justify-center bg-card hover:bg-accent active:scale-[0.98] transition-all shadow-sm group"
+            className="w-full h-24 border border-border rounded-xl flex items-center justify-center bg-card hover:bg-accent transition-all shadow-sm group"
           >
-            <h1 className="text-xl font-semibold tracking-tight text-foreground/80 group-hover:text-foreground">Civil Canteen</h1>
+            <MapPin className="w-4 h-4 mr-2 text-primary opacity-50 group-hover:opacity-100" />
+            <h1 className="font-semibold tracking-tight">Civil</h1>
           </button>
         </div>
 
-        {/* Menu Items Area */}
-        <div className="border border-border rounded-xl p-5 space-y-4 bg-muted/50">
-          <h2 className="text-center text-lg font-semibold tracking-tight text-foreground pb-1">
-            Latest Updated !
-          </h2>
-
-          {/* Food Items List */}
-          <div className="space-y-2.5">
-            {foodItemsData.map((item, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-3.5 border border-border rounded-lg bg-card shadow-sm hover:border-accent transition"
-              >
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-foreground/70">
-                    {item.name}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {item.canteen}
-                  </span>
-                </div>
-                {renderAvailabilityStatus(item.status, item.label)}
-              </div>
-            ))}
-          </div>
-        </div>
-
-      </div>
-
-      {/* Profile Modal */}
-      {isProfileModalOpen && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-md p-6 relative animate-in fade-in zoom-in duration-200">
+        {/* Recent Activity Feed */}
+        <div className="border border-border rounded-xl p-5 space-y-4 bg-muted/30">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold tracking-tight">Latest Updates</h2>
             <button 
-              onClick={() => setIsProfileModalOpen(false)}
-              className="absolute right-4 top-4 p-1 rounded-full hover:bg-accent transition-colors"
+              onClick={loadRecentUpdates}
+              className="p-1.5 rounded-full hover:bg-accent transition-colors"
+              title="Refresh Feed"
             >
-              <X className="w-5 h-5" />
+              <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
             </button>
+          </div>
 
-            <h2 className="text-xl font-bold mb-6">Edit Profile</h2>
-
-            <div className="flex flex-col items-center mb-6">
-              <div className="relative group">
-                <div className="w-24 h-24 rounded-full border-2 border-primary/20 overflow-hidden bg-muted flex items-center justify-center">
-                  {user?.metadata?.avatar_url ? (
-                    <img src={user.metadata.avatar_url} alt="Profile" className="w-full h-full object-cover" />
-                  ) : (
-                    <User className="w-10 h-10 text-muted-foreground" />
-                  )}
-                  {uploadingImage && (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                      <Loader2 className="w-6 h-6 text-white animate-spin" />
-                    </div>
-                  )}
+          <div className="space-y-3">
+            {loading ? (
+              <div className="text-center py-8 text-sm text-muted-foreground">Loading activity...</div>
+            ) : recentUpdates.length === 0 ? (
+              <div className="text-center py-8 text-sm text-muted-foreground">No recent user activity.</div>
+            ) : (
+              recentUpdates.map((update) => (
+                <div key={update.id} className="flex items-start gap-3 p-3 border border-border rounded-lg bg-card shadow-sm">
+                  <div className="p-2 bg-primary/10 rounded-full">
+                    <Clock className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm">
+                      <span className="font-semibold">{update.profiles?.full_name || 'Someone'}</span> 
+                      {' reported '}
+                      <span className="font-medium text-primary">{update.menu_items?.name}</span>
+                      {' as '}
+                      <span className={cn(
+                        "font-bold",
+                        update.reported_status === 'available' ? 'text-green-600' :
+                        update.reported_status === 'unavailable' ? 'text-red-600' : 'text-blue-600'
+                      )}>
+                        {update.reported_status === 'coming_soon' ? 'Coming Soon' : update.reported_status}
+                      </span>
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {formatTimeAgo(update.created_at)}
+                    </p>
+                  </div>
                 </div>
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute bottom-0 right-0 p-2 bg-primary text-primary-foreground rounded-full shadow-lg hover:scale-110 transition-transform disabled:opacity-50"
-                  disabled={uploadingImage}
-                >
-                  <Camera className="w-4 h-4" />
-                </button>
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleImageUpload} 
-                  className="hidden" 
-                  accept="image/*"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">Click the camera to upload a photo</p>
-            </div>
-
-            <form onSubmit={handleUpdateProfile} className="space-y-4">
-              <Field>
-                <FieldLabel htmlFor="full-name">Full Name</FieldLabel>
-                <Input 
-                  id="full-name"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Enter your name"
-                  required
-                />
-              </Field>
-
-              <div className="flex gap-3 pt-2">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  className="flex-1"
-                  onClick={() => setIsProfileModalOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit" 
-                  className="flex-1"
-                  disabled={isUpdating}
-                >
-                  {isUpdating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                  Save Changes
-                </Button>
-              </div>
-            </form>
+              ))
+            )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
