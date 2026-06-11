@@ -13,6 +13,7 @@ interface FoodItem {
     id: string;
     name: string;
     description: string;
+    canteen: string;
     current_status: string;
     ready_in_minutes: number | null;
     consensus_confidence: number;

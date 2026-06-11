@@ -14,7 +14,7 @@ interface UpdateRecord {
   reported_status: string;
   ready_in_minutes: number | null;
   created_at: string;
-  menu_items: { name: string };
+  menu_items: { name: string; canteen: string };
   profiles: { full_name: string };
 }
 
@@ -318,6 +318,11 @@ export default function MainHome() {
                       <span className="font-semibold">{update.profiles?.full_name || 'Someone'}</span> 
                       {' reported '}
                       <span className="font-medium text-primary">{update.menu_items?.name}</span>
+                      {update.menu_items?.canteen && (
+                        <span className="text-[10px] text-muted-foreground ml-1 italic">
+                          ({update.menu_items.canteen})
+                        </span>
+                      )}
                       {' as '}
                       <span className={cn(
                         "font-bold",

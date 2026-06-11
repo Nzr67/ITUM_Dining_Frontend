@@ -77,7 +77,8 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
             name: `${firstName} ${lastName}`,
             email: formattedEmail,
             password: password,
-            division: division
+            division: division,
+            student_id: studentId
           }),
         })
 

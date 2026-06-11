@@ -16,6 +16,9 @@ interface HistoryEntry {
   profiles: {
     full_name: string
   }
+  menu_items?: {
+    canteen: string
+  }
 }
 
 interface ItemHistoryModalProps {
@@ -73,7 +76,14 @@ export function ItemHistoryModal({ isOpen, onClose, item }: ItemHistoryModalProp
         </button>
 
         <h2 className="text-xl font-bold mb-1">Update History</h2>
-        <p className="text-sm text-muted-foreground mb-6">{item.name}</p>
+        <p className="text-sm text-muted-foreground mb-6">
+          {item.name}
+          {history.length > 0 && history[0].menu_items?.canteen && (
+            <span className="ml-1 text-[10px] uppercase font-bold text-primary/70">
+              • {history[0].menu_items.canteen}
+            </span>
+          )}
+        </p>
 
         <div className="flex-1 overflow-y-auto pr-2">
           {loading ? (

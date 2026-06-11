@@ -15,6 +15,7 @@ interface StatusUpdateModalProps {
     id: string;
     name: string;
     current_status: string;
+    canteen?: string;
   };
   onSuccess: () => void;
 }
@@ -95,7 +96,10 @@ export function StatusUpdateModal({ isOpen, onClose, item, onSuccess }: StatusUp
         </button>
 
         <h2 className='text-xl font-bold mb-2'>Update Status</h2>
-        <p className='text-sm text-muted-foreground mb-6'>Reporting for: <span className='font-semibold text-foreground'>{item.name}</span></p>
+        <p className='text-sm text-muted-foreground mb-6'>
+          Reporting for: <span className='font-semibold text-foreground'>{item.name}</span>
+          {item.canteen && <span className="ml-1 text-[10px] text-primary/70 font-bold uppercase">• {item.canteen}</span>}
+        </p>
 
         {error && (
           <div className='bg-destructive/15 text-destructive text-sm p-3 rounded-md mb-4 flex items-center gap-2'>
